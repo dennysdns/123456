@@ -5,6 +5,7 @@ export type StudioView =
   | 'video'
   | 'audio'
   | 'chroma'
+  | 'chroma-video'
   | 'bg-remover'
   | 'effects'
   | 'text'

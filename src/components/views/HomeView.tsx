@@ -97,6 +97,13 @@ export const HomeView: React.FC<HomeViewProps> = ({
       action: () => onNavigate('chroma'),
     },
     {
+      id: 'chroma-video',
+      label: 'CHROMA KEY EM VÍDEO',
+      subtitle: 'Remove o fundo do vídeo',
+      icon: Film,
+      action: () => onNavigate('chroma-video'),
+    },
+    {
       id: 'bg-remover',
       label: 'REMOVER FUNDO',
       subtitle: 'Varinha mágica e pincel',

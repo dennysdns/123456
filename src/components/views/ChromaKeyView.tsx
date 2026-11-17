@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pipette, Download, Upload, CheckCircle2 } from 'lucide-react';
+import { Pipette, Download, Upload, CheckCircle2, Film } from 'lucide-react';
 import { ChromaKeyConfig, GalleryItem, MediaFile } from '../../types/studio';
 import { applyChromaKeyToImageData } from '../../utils/canvasRenderer';
 import { ALL_ACCEPTED_EXTENSIONS, processImportedFile } from '../../utils/mediaImporter';
@@ -9,12 +9,14 @@ interface ChromaKeyViewProps {
   mediaFiles: MediaFile[];
   onImportMedia: (files: MediaFile[]) => Promise<void>;
   onSaveToGallery: (item: GalleryItem) => Promise<void>;
+  onOpenVideoMode: () => void;
 }
 
 export const ChromaKeyView: React.FC<ChromaKeyViewProps> = ({
   mediaFiles,
   onImportMedia,
   onSaveToGallery,
+  onOpenVideoMode,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -187,6 +189,13 @@ export const ChromaKeyView: React.FC<ChromaKeyViewProps> = ({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={onOpenVideoMode}
+            className="min-h-[40px] px-3.5 rounded-xl bg-[#1A1E28] border border-white/12 text-xs font-semibold text-slate-200 hover:bg-white/10 inline-flex items-center gap-1.5 cursor-pointer"
+          >
+            <Film className="w-4 h-4 text-cyan-400" />
+            Modo Vídeo
+          </button>
           <button
             onClick={() => fileInputRef.current?.click()}
             className="min-h-[40px] px-3.5 rounded-xl bg-[#1A1E28] border border-white/12 text-xs font-semibold text-white hover:bg-white/10 inline-flex items-center gap-1.5 cursor-pointer"

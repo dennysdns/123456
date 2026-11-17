@@ -34,6 +34,7 @@ import { AnimationStudioView } from './components/views/AnimationStudioView';
 import { VideoEditorView } from './components/views/VideoEditorView';
 import { AudioEditorView } from './components/views/AudioEditorView';
 import { ChromaKeyView } from './components/views/ChromaKeyView';
+import { VideoChromaKeyView } from './components/views/VideoChromaKeyView';
 import { BgRemoverView } from './components/views/BgRemoverView';
 import { SpecialEffectsView } from './components/views/SpecialEffectsView';
 import { AnimatedTextView } from './components/views/AnimatedTextView';
@@ -607,6 +608,16 @@ export default function App() {
                 mediaFiles={mediaFiles}
                 onImportMedia={handleImportMedia}
                 onSaveToGallery={handleSaveToGallery}
+                onOpenVideoMode={() => navigate('chroma-video')}
+              />
+            )}
+
+            {view === 'chroma-video' && (
+              <VideoChromaKeyView
+                mediaFiles={mediaFiles}
+                onImportMedia={handleImportMedia}
+                onSaveToGallery={handleSaveToGallery}
+                onOpenImageMode={() => navigate('chroma')}
               />
             )}
 
