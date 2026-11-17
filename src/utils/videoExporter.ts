@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { DEFAULT_CHROMA_KEY, DEFAULT_EFFECTS, MediaFile, StudioProject } from '../types/studio';
 import {
   applyChromaKeyToImageData,
@@ -522,7 +523,37 @@ function waitMs(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-export function triggerBlobDownload(blob: Blob, filename: string): void {
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+export async function triggerBlobDownload(blob: Blob, filename: string): Promise<void> {
+  // Android WebView (APK) has no download manager, so hand the file to the native share/save sheet.
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const [{Directory, Filesystem}, {Share}] = await Promise.all([
+        import('@capacitor/filesystem'),
+        import('@capacitor/share'),
+      ]);
+      const {uri} = await Filesystem.writeFile({
+        path: filename,
+        data: await blobToBase64(blob),
+        directory: Directory.Cache,
+        recursive: true,
+      });
+      await Share.share({title: filename, url: uri, dialogTitle: 'Salvar arquivo'});
+    } catch (error) {
+      console.error('Falha ao salvar o arquivo no dispositivo', error);
+      window.alert('Não foi possível salvar o arquivo no dispositivo.');
+    }
+    return;
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

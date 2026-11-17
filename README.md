@@ -8,6 +8,29 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/61fe81b2-2c80-4e65-942e-ff7c4c686438
 
+## App Android (APK)
+
+The web app is wrapped with [Capacitor](https://capacitorjs.com) (`capacitor.config.ts`,
+`android/` project, app id `com.superanimator.studio`). The built APK is served at
+`/downloads/super-animator-studio.apk` and linked from **Configurações**.
+
+Rebuild after changing web code:
+
+```bash
+npm install
+npm run android:sync   # vite build + cap sync android
+npm run android:apk    # ./gradlew assembleDebug (needs JDK 21 + Android SDK 36)
+cp android/app/build/outputs/apk/debug/app-debug.apk downloads/super-animator-studio.apk
+```
+
+The APK is debug-signed, so it installs on any device (enable "install unknown apps").
+For a Play Store build, add a release keystore and run `./gradlew assembleRelease` /
+`bundleRelease` — signing is not configured yet.
+
+Inside the APK, file exports cannot use the browser download manager, so
+`triggerBlobDownload` writes the file to the app cache and opens the native
+share/save sheet (`@capacitor/filesystem` + `@capacitor/share`).
+
 ## Run Locally
 
 **Prerequisites:**  Node.js
