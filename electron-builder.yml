@@ -1,0 +1,35 @@
+appId: com.superanimatorstudio.desktop
+productName: Super Animator Studio
+copyright: Super Animator Studio
+
+directories:
+  output: release
+
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+  - "!node_modules/**/*"
+
+asar: true
+
+win:
+  icon: assets/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: Super Animator Studio
+  artifactName: SuperAnimatorStudio-Setup-${version}.exe
+
+portable:
+  artifactName: SuperAnimatorStudio-Portable-${version}.exe

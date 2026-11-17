@@ -1,14 +1,22 @@
 {
-  "name": "react-example",
+  "name": "super-animator-studio",
+  "productName": "Super Animator Studio",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Estúdio offline de animação, vídeo, áudio e efeitos especiais.",
+  "author": "Super Animator Studio",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "desktop:build": "vite build --base=./",
+    "desktop:dev": "electron . --dev",
+    "desktop:dist": "vite build --base=./ && electron-builder --win --x64 --publish never",
+    "desktop:pack": "vite build --base=./ && electron-builder --win zip --x64 --publish never"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -28,6 +36,8 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
+    "electron": "^45.3.3",
+    "electron-builder": "^26.18.0",
     "esbuild": "^0.25.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
