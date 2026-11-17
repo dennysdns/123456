@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Capacitor } from '@capacitor/core';
-import { Download, HardDrive, Trash2, CheckCircle2, Settings, Smartphone } from 'lucide-react';
+import { HardDrive, Trash2, CheckCircle2, Settings } from 'lucide-react';
 import { StudioSettings } from '../../types/studio';
 import { formatBytes } from '../../utils/mediaImporter';
 import { PWAInstallButton } from '../PWAInstallButton';
+import { ApkInstallCard } from '../ApkInstallCard';
 
 interface SettingsViewProps {
   settings: StudioSettings;
@@ -179,25 +179,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Android APK Section */}
-        {!Capacitor.isNativePlatform() && (
-          <div className="pt-5 border-t border-white/8 space-y-3">
-            <span className="text-sm font-semibold text-white inline-flex items-center gap-2">
-              <Smartphone className="w-4 h-4 text-emerald-400" />
-              Aplicativo Android (APK)
-            </span>
-            <p className="text-xs text-slate-400">
-              Instale o estúdio como app nativo no celular. Funciona 100% offline, sem loja de aplicativos.
-            </p>
-            <a
-              href="/downloads/super-animator-studio.apk"
-              download
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/25 cursor-pointer"
-            >
-              <Download className="w-4 h-4" />
-              Baixar APK
-            </a>
-          </div>
-        )}
+        <ApkInstallCard />
       </div>
     </div>
   );
