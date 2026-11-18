@@ -15,6 +15,7 @@ import {
   renderAnimationFrameToCanvas,
 } from '../../utils/canvasRenderer';
 import { triggerBlobDownload } from '../../utils/videoExporter';
+import { VERTICAL_FRAME_HEIGHT, VERTICAL_FRAME_WIDTH } from '../../utils/verticalFrame';
 
 interface SpecialEffectsViewProps {
   project: StudioProject;
@@ -45,17 +46,7 @@ export const SpecialEffectsView: React.FC<SpecialEffectsViewProps> = ({
     return () => window.clearInterval(id);
   }, []);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const w = 540;
-    const h = 960;
-    canvas.width = w;
-    canvas.height = h;
-
+  const renderEffectsFrame = (ctx: CanvasRenderingContext2D, w: number, h: number) => {
     const off = document.createElement('canvas');
     off.width = w;
     off.height = h;
@@ -89,6 +80,20 @@ export const SpecialEffectsView: React.FC<SpecialEffectsViewProps> = ({
 
     applyPostPixelEffects(ctx, w, h, effects, tick);
     drawParticlesOverlay(ctx, particles, w, h, tick);
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Live preview stays small for speed; exports use the full 1080×1920 frame.
+    const w = 540;
+    const h = 960;
+    canvas.width = w;
+    canvas.height = h;
+    renderEffectsFrame(ctx, w, h);
   }, [effects, particles, sourceMediaId, project, imageCache, tick]);
 
   const applyToActiveProject = () => {
@@ -102,10 +107,16 @@ export const SpecialEffectsView: React.FC<SpecialEffectsViewProps> = ({
   };
 
   const handleExportFrame = () => {
-    if (!canvasRef.current) return;
-    canvasRef.current.toBlob(async (blob) => {
+    const full = document.createElement('canvas');
+    full.width = VERTICAL_FRAME_WIDTH;
+    full.height = VERTICAL_FRAME_HEIGHT;
+    const ctx = full.getContext('2d');
+    if (!ctx) return;
+
+    renderEffectsFrame(ctx, full.width, full.height);
+    full.toBlob(async (blob) => {
       if (!blob) return;
-      const filename = `efeitos_${Date.now()}.png`;
+      const filename = `efeitos_1080x1920_${Date.now()}.png`;
       triggerBlobDownload(blob, filename);
       await onSaveToGallery({
         id: `gal-${Date.now()}`,
@@ -113,13 +124,13 @@ export const SpecialEffectsView: React.FC<SpecialEffectsViewProps> = ({
         kind: 'image',
         mimeType: 'image/png',
         size: blob.size,
-        width: 540,
-        height: 960,
+        width: full.width,
+        height: full.height,
         blob,
-        thumbnailDataUrl: canvasRef.current?.toDataURL('image/png'),
+        thumbnailDataUrl: full.toDataURL('image/png'),
         createdAt: Date.now(),
       });
-      setNotice('Quadro com efeitos baixado e salvo na Minha Galeria!');
+      setNotice('Quadro com efeitos exportado em 9:16 (1080×1920) e salvo na Minha Galeria!');
     }, 'image/png');
   };
 

@@ -186,6 +186,81 @@ export function applyChromaKeyToImageData(
   return imageData;
 }
 
+export interface SelectionGizmo {
+  center: { x: number; y: number };
+  halfW: number;
+  halfH: number;
+  pad: number;
+  stem: number;
+  handleHalf: number;
+  handleInnerHalf: number;
+  knobRadius: number;
+  hitRadius: number;
+  corners: { x: number; y: number }[];
+  stemStart: { x: number; y: number };
+  knob: { x: number; y: number };
+}
+
+/**
+ * Selection gizmo geometry shared by the animation stage and the video monitor.
+ * Handle sizes are expressed in screen px (converted to project px through
+ * `gizmoScale`) and clamped inside the canvas, so images/videos that fill the
+ * 1080×1920 frame still expose grabbable touch/mouse handles.
+ */
+export function computeSelectionGizmo(params: {
+  centerX: number;
+  centerY: number;
+  width: number;
+  height: number;
+  scaleX: number;
+  scaleY: number;
+  rotation: number;
+  canvasWidth: number;
+  canvasHeight: number;
+  gizmoScale?: number;
+}): SelectionGizmo {
+  const gs = Math.max(1, params.gizmoScale ?? 1);
+  const pad = 9 * gs;
+  const stem = 26 * gs;
+  const halfW = (params.width * Math.abs(params.scaleX)) / 2 + pad;
+  const halfH = (params.height * Math.abs(params.scaleY)) / 2 + pad;
+  const rad = (params.rotation * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const toCanvas = (lx: number, ly: number) => ({
+    x: params.centerX + lx * cos - ly * sin,
+    y: params.centerY + lx * sin + ly * cos,
+  });
+  const margin = Math.max(
+    2,
+    Math.min(16 * gs, params.canvasWidth / 2 - 2, params.canvasHeight / 2 - 2)
+  );
+  const clamp = (p: { x: number; y: number }) => ({
+    x: Math.min(params.canvasWidth - margin, Math.max(margin, p.x)),
+    y: Math.min(params.canvasHeight - margin, Math.max(margin, p.y)),
+  });
+
+  return {
+    center: { x: params.centerX, y: params.centerY },
+    halfW,
+    halfH,
+    pad,
+    stem,
+    handleHalf: 9 * gs,
+    handleInnerHalf: 6.5 * gs,
+    knobRadius: 13 * gs,
+    hitRadius: 24 * gs,
+    corners: [
+      [-halfW, -halfH],
+      [halfW, -halfH],
+      [halfW, halfH],
+      [-halfW, halfH],
+    ].map(([lx, ly]) => clamp(toCanvas(lx, ly))),
+    stemStart: clamp(toCanvas(0, -halfH)),
+    knob: clamp(toCanvas(0, -halfH - stem)),
+  };
+}
+
 export function buildCssFilterString(effects: EffectsConfig): string {
   const parts: string[] = [];
   if (effects.brightness !== 100) parts.push(`brightness(${effects.brightness}%)`);
@@ -822,6 +897,8 @@ export function renderAnimationFrameToCanvas(
     gifCache?: Map<string, DecodedGif>;
     videoCache?: Map<string, HTMLVideoElement>;
     elapsedMs?: number;
+    /** Project px per displayed px, so gizmo handles keep a touch-friendly screen size. */
+    gizmoScale?: number;
   }
 ): void {
   const { width, height, frames, layers } = project;
@@ -987,51 +1064,60 @@ export function renderAnimationFrameToCanvas(
     const sel = layers.find((l) => l.id === options.selectedLayerId);
     if (sel && sel.visible) {
       const tr = interpolateLayerAtFrame(sel, safeIndex, frames.length);
-      const halfW = (sel.width * Math.abs(tr.scaleX)) / 2 + 12;
-      const halfH = (sel.height * Math.abs(tr.scaleY)) / 2 + 12;
+      const gs = Math.max(1, options.gizmoScale ?? 1);
+      const geo = computeSelectionGizmo({
+        centerX: tr.x,
+        centerY: tr.y,
+        width: sel.width,
+        height: sel.height,
+        scaleX: tr.scaleX,
+        scaleY: tr.scaleY,
+        rotation: tr.rotation,
+        canvasWidth: width,
+        canvasHeight: height,
+        gizmoScale: gs,
+      });
 
+      // Dashed bounds stay attached to the rotated layer
       ctx.save();
       ctx.translate(tr.x, tr.y);
       ctx.rotate((tr.rotation * Math.PI) / 180);
-
       ctx.strokeStyle = '#F59E0B';
-      ctx.lineWidth = 3;
-      ctx.setLineDash([10, 6]);
-      ctx.strokeRect(-halfW, -halfH, halfW * 2, halfH * 2);
+      ctx.lineWidth = 2.5 * gs;
+      ctx.setLineDash([10 * gs, 6 * gs]);
+      ctx.strokeRect(-geo.halfW, -geo.halfH, geo.halfW * 2, geo.halfH * 2);
       ctx.setLineDash([]);
+      ctx.restore();
 
-      // 4 Corner resize handles
-      const corners = [
-        [-halfW, -halfH],
-        [halfW, -halfH],
-        [halfW, halfH],
-        [-halfW, halfH],
-      ];
-      corners.forEach(([cx, cy]) => {
-        ctx.fillStyle = '#0B0D11';
-        ctx.fillRect(cx - 12, cy - 12, 24, 24);
-        ctx.fillStyle = '#F59E0B';
-        ctx.fillRect(cx - 9, cy - 9, 18, 18);
-      });
-
-      // Rotation handle stem + knob
+      // Rotation stem + knob (clamped inside the canvas)
       ctx.strokeStyle = '#06B6D4';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 3 * gs;
       ctx.beginPath();
-      ctx.moveTo(0, -halfH);
-      ctx.lineTo(0, -halfH - 44);
+      ctx.moveTo(geo.stemStart.x, geo.stemStart.y);
+      ctx.lineTo(geo.knob.x, geo.knob.y);
       ctx.stroke();
 
       ctx.fillStyle = '#0B0D11';
       ctx.beginPath();
-      ctx.arc(0, -halfH - 46, 15, 0, Math.PI * 2);
+      ctx.arc(geo.knob.x, geo.knob.y, geo.knobRadius + 2 * gs, 0, Math.PI * 2);
       ctx.fill();
       ctx.fillStyle = '#06B6D4';
       ctx.beginPath();
-      ctx.arc(0, -halfH - 46, 11, 0, Math.PI * 2);
+      ctx.arc(geo.knob.x, geo.knob.y, geo.knobRadius, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.restore();
+      // 4 Corner resize handles (upright, always reachable)
+      geo.corners.forEach(({ x, y }) => {
+        ctx.fillStyle = '#0B0D11';
+        ctx.fillRect(x - geo.handleHalf, y - geo.handleHalf, geo.handleHalf * 2, geo.handleHalf * 2);
+        ctx.fillStyle = '#F59E0B';
+        ctx.fillRect(
+          x - geo.handleInnerHalf,
+          y - geo.handleInnerHalf,
+          geo.handleInnerHalf * 2,
+          geo.handleInnerHalf * 2
+        );
+      });
     }
   }
 

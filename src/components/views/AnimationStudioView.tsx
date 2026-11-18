@@ -47,6 +47,7 @@ import {
   StudioSettings,
 } from '../../types/studio';
 import {
+  computeSelectionGizmo,
   ensureStudioBackgroundLoaded,
   interpolateLayerAtFrame,
   renderAnimationFrameToCanvas,
@@ -254,6 +255,7 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
       gifCache,
       videoCache,
       elapsedMs: liveElapsedMs,
+      gizmoScale: Math.max(1, project.width / Math.max(1, canvas.getBoundingClientRect().width)),
     });
   }, [
     project,
@@ -270,6 +272,13 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
     toolMode,
     showGrid,
   ]);
+
+  // Project px per displayed px — keeps handles/hit areas finger-sized on the 9:16 stage.
+  const getGizmoScale = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return 1;
+    return Math.max(1, project.width / Math.max(1, canvas.getBoundingClientRect().width));
+  };
 
   const toCanvasCoords = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -453,12 +462,22 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
     // 1) Check interactive resize/rotate handles on currently selected layer first
     if (selectedLayer && selectedLayer.visible && !selectedLayer.locked) {
       const tr = interpolateLayerAtFrame(selectedLayer, safeFrameIndex, project.frames.length);
-      const halfW = (selectedLayer.width * Math.abs(tr.scaleX)) / 2 + 12;
-      const halfH = (selectedLayer.height * Math.abs(tr.scaleY)) / 2 + 12;
+      const geo = computeSelectionGizmo({
+        centerX: tr.x,
+        centerY: tr.y,
+        width: selectedLayer.width,
+        height: selectedLayer.height,
+        scaleX: tr.scaleX,
+        scaleY: tr.scaleY,
+        rotation: tr.rotation,
+        canvasWidth: project.width,
+        canvasHeight: project.height,
+        gizmoScale: getGizmoScale(),
+      });
       const { rx, ry } = toLayerSpace(pt, tr);
 
-      // Rotation handle at (0, -halfH - 46)
-      if (Math.hypot(rx, ry - (-halfH - 46)) <= 42) {
+      // Rotation knob (clamped inside the stage)
+      if (Math.hypot(pt.x - geo.knob.x, pt.y - geo.knob.y) <= geo.hitRadius) {
         dragStateRef.current = {
           ...dragStateRef.current,
           active: true,
@@ -474,14 +493,10 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
         return;
       }
 
-      // 4 Corner resize handles
-      const corners = [
-        [-halfW, -halfH],
-        [halfW, -halfH],
-        [halfW, halfH],
-        [-halfW, halfH],
-      ];
-      const hitCorner = corners.some(([cx, cy]) => Math.hypot(rx - cx, ry - cy) <= 44);
+      // 4 Corner resize handles (clamped inside the stage)
+      const hitCorner = geo.corners.some(
+        (corner) => Math.hypot(pt.x - corner.x, pt.y - corner.y) <= geo.hitRadius
+      );
       if (hitCorner) {
         dragStateRef.current = {
           ...dragStateRef.current,
@@ -504,13 +519,14 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
 
     // 2) Hit test layers top-to-bottom in rotated local coordinates
     let hitLayer: AnimationLayer | null = null;
+    const hitPad = 10 * getGizmoScale();
     for (let i = project.layers.length - 1; i >= 0; i--) {
       const l = project.layers[i];
       if (!l.visible || l.locked) continue;
       const tr = interpolateLayerAtFrame(l, safeFrameIndex, project.frames.length);
       const { rx, ry } = toLayerSpace(pt, tr);
-      const halfW = (l.width * Math.abs(tr.scaleX)) / 2 + 18;
-      const halfH = (l.height * Math.abs(tr.scaleY)) / 2 + 18;
+      const halfW = (l.width * Math.abs(tr.scaleX)) / 2 + hitPad;
+      const halfH = (l.height * Math.abs(tr.scaleY)) / 2 + hitPad;
       if (Math.abs(rx) <= halfW && Math.abs(ry) <= halfH) {
         hitLayer = l;
         break;
@@ -1299,6 +1315,7 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
               onPointerDown={handlePointerDown}
               onPointerMove={handlePointerMove}
               onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
               className={`max-h-[540px] w-auto max-w-full h-auto mx-auto block touch-none select-none ${
                 toolMode === 'eyedropper'
                   ? 'cursor-cell'
@@ -1386,7 +1403,7 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
                     <Maximize2 className="w-3 h-3 text-amber-400" />
                     Redimensionar
                   </span>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center justify-end gap-1.5">
                     <button
                       type="button"
                       onClick={() => setProportionalResize((v) => !v)}
@@ -1417,10 +1434,30 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
                         );
                       }}
                       className="px-2 py-0.5 rounded bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 text-[10px] font-medium cursor-pointer"
-                      title="Ajustar imagem ao tamanho 9:16 do palco"
+                      title="Ajustar a imagem/vídeo inteiro dentro do quadro 9:16"
                     >
-                      Ajustar 9:16
+                      Ajustar
                     </button>
+                    {(selectedLayer.kind === 'image' || selectedLayer.kind === 'video') && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateSelectedLayer((l) => {
+                            const next = upsertLayerKeyframe(l, safeFrameIndex, {
+                              x: Math.round(project.width / 2),
+                              y: Math.round(project.height / 2),
+                              scaleX: 1,
+                              scaleY: 1,
+                            });
+                            return { ...next, width: project.width, height: project.height };
+                          })
+                        }
+                        className="px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-medium cursor-pointer"
+                        title="Redimensionar a imagem/vídeo para preencher 1080×1920 (9:16)"
+                      >
+                        Preencher 1080×1920
+                      </button>
+                    )}
                   </div>
                 </div>
 

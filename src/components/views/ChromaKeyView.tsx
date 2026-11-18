@@ -4,6 +4,7 @@ import { ChromaKeyConfig, GalleryItem, MediaFile } from '../../types/studio';
 import { applyChromaKeyToImageData } from '../../utils/canvasRenderer';
 import { ALL_ACCEPTED_EXTENSIONS, processImportedFile } from '../../utils/mediaImporter';
 import { triggerBlobDownload } from '../../utils/videoExporter';
+import { renderVerticalFrame, VerticalFitMode } from '../../utils/verticalFrame';
 
 interface ChromaKeyViewProps {
   mediaFiles: MediaFile[];
@@ -33,6 +34,9 @@ export const ChromaKeyView: React.FC<ChromaKeyViewProps> = ({
   const [backdropColor, setBackdropColor] = useState('#111827');
   const [eyedropperActive, setEyedropperActive] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Output can be resized to the project's single vertical frame (1080×1920).
+  const [verticalOutput, setVerticalOutput] = useState(true);
+  const [fitMode, setFitMode] = useState<VerticalFitMode>('contain');
 
   // Load selected image or generate an offline green-screen test sample on canvas
   const drawSampleOrImage = () => {
@@ -133,10 +137,23 @@ export const ChromaKeyView: React.FC<ChromaKeyViewProps> = ({
   };
 
   const handleSaveResult = async (download: boolean) => {
-    if (!canvasRef.current) return;
-    canvasRef.current.toBlob(async (blob) => {
+    const source = canvasRef.current;
+    if (!source) return;
+    const output = verticalOutput
+      ? renderVerticalFrame(
+          source,
+          source.width,
+          source.height,
+          fitMode,
+          backdropMode === 'solid' ? backdropColor : undefined
+        )
+      : source;
+
+    output.toBlob(async (blob) => {
       if (!blob) return;
-      const filename = `chromakey_${Date.now()}.png`;
+      const filename = verticalOutput
+        ? `chromakey_1080x1920_${Date.now()}.png`
+        : `chromakey_${Date.now()}.png`;
       if (download) triggerBlobDownload(blob, filename);
 
       const imported = await processImportedFile(blob, filename, 'images');
@@ -148,13 +165,17 @@ export const ChromaKeyView: React.FC<ChromaKeyViewProps> = ({
         kind: 'image',
         mimeType: 'image/png',
         size: blob.size,
-        width: canvasRef.current?.width,
-        height: canvasRef.current?.height,
+        width: output.width,
+        height: output.height,
         blob,
-        thumbnailDataUrl: canvasRef.current?.toDataURL('image/png'),
+        thumbnailDataUrl: output.toDataURL('image/png'),
         createdAt: Date.now(),
       });
-      setNotice('Recorte Chroma Key salvo no projeto e na Minha Galeria!');
+      setNotice(
+        verticalOutput
+          ? 'Recorte Chroma Key redimensionado para 9:16 (1080×1920) e salvo!'
+          : 'Recorte Chroma Key salvo no projeto e na Minha Galeria!'
+      );
     }, 'image/png');
   };
 
@@ -371,6 +392,58 @@ export const ChromaKeyView: React.FC<ChromaKeyViewProps> = ({
                 onChange={(e) => setBackdropColor(e.target.value)}
                 className="w-full h-9 rounded bg-transparent cursor-pointer"
               />
+            )}
+          </div>
+
+          <div className="pt-2 border-t border-white/8 space-y-2">
+            <span className="block text-xs font-semibold text-slate-200">Tamanho da imagem salva</span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setVerticalOutput(false)}
+                className={`min-h-[38px] rounded-lg text-xs font-medium cursor-pointer ${
+                  !verticalOutput
+                    ? 'bg-amber-500 text-slate-950 font-semibold'
+                    : 'bg-[#1A1E28] text-slate-300'
+                }`}
+              >
+                Original
+              </button>
+              <button
+                onClick={() => setVerticalOutput(true)}
+                className={`min-h-[38px] rounded-lg text-xs font-medium cursor-pointer ${
+                  verticalOutput
+                    ? 'bg-amber-500 text-slate-950 font-semibold'
+                    : 'bg-[#1A1E28] text-slate-300'
+                }`}
+              >
+                9:16 · 1080×1920
+              </button>
+            </div>
+            {verticalOutput && (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setFitMode('contain')}
+                  className={`min-h-[34px] rounded-lg text-[11px] font-medium cursor-pointer ${
+                    fitMode === 'contain'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                      : 'bg-[#1A1E28] text-slate-400 border border-white/10'
+                  }`}
+                  title="Mantém a imagem inteira visível dentro de 1080×1920"
+                >
+                  Conter
+                </button>
+                <button
+                  onClick={() => setFitMode('cover')}
+                  className={`min-h-[34px] rounded-lg text-[11px] font-medium cursor-pointer ${
+                    fitMode === 'cover'
+                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
+                      : 'bg-[#1A1E28] text-slate-400 border border-white/10'
+                  }`}
+                  title="Preenche 1080×1920 cortando as sobras"
+                >
+                  Preencher
+                </button>
+              </div>
             )}
           </div>
         </div>

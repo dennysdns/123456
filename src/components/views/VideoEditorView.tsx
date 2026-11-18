@@ -31,6 +31,7 @@ import {
 import {
   applyChromaKeyToImageData,
   buildCssFilterString,
+  computeSelectionGizmo,
   drawStudioBackground,
   drawTextLayer,
   ensureStudioBackgroundLoaded,
@@ -450,54 +451,77 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
       const isActiveSel = activeClips.some((c) => c.id === selectedClip.id);
       if (isActiveSel) {
         const { w, h } = getClipBaseDims(selectedClip);
-        const halfW = (w * Math.abs(selectedClip.scale)) / 2 + 10;
-        const halfH = (h * Math.abs(selectedClip.scale)) / 2 + 10;
+        const gs = Math.max(1, project.width / Math.max(1, canvas.getBoundingClientRect().width));
         const cx = project.width / 2 + selectedClip.x;
         const cy = project.height / 2 + selectedClip.y;
+        const geo = computeSelectionGizmo({
+          centerX: cx,
+          centerY: cy,
+          width: w,
+          height: h,
+          scaleX: selectedClip.scale,
+          scaleY: selectedClip.scale,
+          rotation: selectedClip.rotation,
+          canvasWidth: project.width,
+          canvasHeight: project.height,
+          gizmoScale: gs,
+        });
 
+        // Dashed bounds stay attached to the rotated clip
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate((selectedClip.rotation * Math.PI) / 180);
-
         ctx.strokeStyle = '#F59E0B';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([10, 6]);
-        ctx.strokeRect(-halfW, -halfH, halfW * 2, halfH * 2);
+        ctx.lineWidth = 2.5 * gs;
+        ctx.setLineDash([10 * gs, 6 * gs]);
+        ctx.strokeRect(-geo.halfW, -geo.halfH, geo.halfW * 2, geo.halfH * 2);
         ctx.setLineDash([]);
+        ctx.restore();
 
-        const corners = [
-          [-halfW, -halfH],
-          [halfW, -halfH],
-          [halfW, halfH],
-          [-halfW, halfH],
-        ];
-        corners.forEach(([hx, hy]) => {
-          ctx.fillStyle = '#0B0D11';
-          ctx.fillRect(hx - 12, hy - 12, 24, 24);
-          ctx.fillStyle = '#F59E0B';
-          ctx.fillRect(hx - 9, hy - 9, 18, 18);
-        });
-
+        // Rotation stem + knob (clamped inside the monitor)
         ctx.strokeStyle = '#06B6D4';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 3 * gs;
         ctx.beginPath();
-        ctx.moveTo(0, -halfH);
-        ctx.lineTo(0, -halfH - 44);
+        ctx.moveTo(geo.stemStart.x, geo.stemStart.y);
+        ctx.lineTo(geo.knob.x, geo.knob.y);
         ctx.stroke();
 
         ctx.fillStyle = '#0B0D11';
         ctx.beginPath();
-        ctx.arc(0, -halfH - 46, 15, 0, Math.PI * 2);
+        ctx.arc(geo.knob.x, geo.knob.y, geo.knobRadius + 2 * gs, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = '#06B6D4';
         ctx.beginPath();
-        ctx.arc(0, -halfH - 46, 11, 0, Math.PI * 2);
+        ctx.arc(geo.knob.x, geo.knob.y, geo.knobRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        ctx.restore();
+        // Corner resize handles (upright, always reachable)
+        geo.corners.forEach(({ x, y }) => {
+          ctx.fillStyle = '#0B0D11';
+          ctx.fillRect(
+            x - geo.handleHalf,
+            y - geo.handleHalf,
+            geo.handleHalf * 2,
+            geo.handleHalf * 2
+          );
+          ctx.fillStyle = '#F59E0B';
+          ctx.fillRect(
+            x - geo.handleInnerHalf,
+            y - geo.handleInnerHalf,
+            geo.handleInnerHalf * 2,
+            geo.handleInnerHalf * 2
+          );
+        });
       }
     }
   }, [project, currentTime, imageCache, gifCache, videoCache, isPlaying, renderTick, selectedClip]);
+
+  // Project px per displayed px — keeps clip handles/hit areas finger-sized.
+  const getGizmoScale = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return 1;
+    return Math.max(1, project.width / Math.max(1, canvas.getBoundingClientRect().width));
+  };
 
   const toCanvasCoords = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
@@ -539,11 +563,21 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     // Check resize & rotation handles of currently selected clip
     if (selectedClip && activeClips.some((c) => c.id === selectedClip.id)) {
       const { w, h } = getClipBaseDims(selectedClip);
-      const halfW = (w * Math.abs(selectedClip.scale)) / 2 + 10;
-      const halfH = (h * Math.abs(selectedClip.scale)) / 2 + 10;
-      const { rx, ry, cx, cy } = toClipLocalSpace(pt, selectedClip);
+      const { cx, cy } = toClipLocalSpace(pt, selectedClip);
+      const geo = computeSelectionGizmo({
+        centerX: project.width / 2 + selectedClip.x,
+        centerY: project.height / 2 + selectedClip.y,
+        width: w,
+        height: h,
+        scaleX: selectedClip.scale,
+        scaleY: selectedClip.scale,
+        rotation: selectedClip.rotation,
+        canvasWidth: project.width,
+        canvasHeight: project.height,
+        gizmoScale: getGizmoScale(),
+      });
 
-      if (Math.hypot(rx, ry - (-halfH - 46)) <= 44) {
+      if (Math.hypot(pt.x - geo.knob.x, pt.y - geo.knob.y) <= geo.hitRadius) {
         canvasDragRef.current = {
           active: true,
           mode: 'rotate',
@@ -561,13 +595,11 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         return;
       }
 
-      const corners = [
-        [-halfW, -halfH],
-        [halfW, -halfH],
-        [halfW, halfH],
-        [-halfW, halfH],
-      ];
-      if (corners.some(([hx, hy]) => Math.hypot(rx - hx, ry - hy) <= 46)) {
+      if (
+        geo.corners.some(
+          (corner) => Math.hypot(pt.x - corner.x, pt.y - corner.y) <= geo.hitRadius
+        )
+      ) {
         canvasDragRef.current = {
           active: true,
           mode: 'resize',
@@ -588,11 +620,12 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
 
     // Hit test active clips top-to-bottom for touch/mouse move
     let hitClip: VideoClip | null = null;
+    const hitPad = 10 * getGizmoScale();
     for (let i = activeClips.length - 1; i >= 0; i--) {
       const clip = activeClips[i];
       const { w, h } = getClipBaseDims(clip);
-      const halfW = (w * Math.abs(clip.scale)) / 2 + 18;
-      const halfH = (h * Math.abs(clip.scale)) / 2 + 18;
+      const halfW = (w * Math.abs(clip.scale)) / 2 + hitPad;
+      const halfH = (h * Math.abs(clip.scale)) / 2 + hitPad;
       const { rx, ry } = toClipLocalSpace(pt, clip);
       if (Math.abs(rx) <= halfW && Math.abs(ry) <= halfH) {
         hitClip = clip;
@@ -1719,6 +1752,37 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                   onChange={(e) => updateSelectedClip({ scale: Number(e.target.value) })}
                   className="w-full accent-amber-500"
                 />
+                {(selectedClip.kind === 'image' || selectedClip.kind === 'video') && (
+                  <div className="grid grid-cols-2 gap-1.5 mt-2">
+                    <button
+                      type="button"
+                      onClick={() => updateSelectedClip({ scale: 1, x: 0, y: 0 })}
+                      className="min-h-[30px] px-2 rounded bg-cyan-500/15 border border-cyan-500/30 text-[10px] font-semibold text-cyan-200 cursor-pointer"
+                      title="Ajustar a imagem/vídeo inteiro dentro do quadro 9:16"
+                    >
+                      Ajustar 9:16
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { w, h } = getClipBaseDims(selectedClip);
+                        const cover = Math.max(
+                          project.width / Math.max(1, w),
+                          project.height / Math.max(1, h)
+                        );
+                        updateSelectedClip({
+                          scale: Number(Math.min(4, cover).toFixed(2)),
+                          x: 0,
+                          y: 0,
+                        });
+                      }}
+                      className="min-h-[30px] px-2 rounded bg-amber-500/15 border border-amber-500/30 text-[10px] font-semibold text-amber-200 cursor-pointer"
+                      title="Redimensionar para preencher 1080×1920 (9:16)"
+                    >
+                      Preencher 1080×1920
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>
