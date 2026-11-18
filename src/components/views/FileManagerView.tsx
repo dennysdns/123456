@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import {
   Folder,
+  Archive,
   HardDrive,
   Smartphone,
   Download,
@@ -50,6 +51,7 @@ const ANDROID_FOLDERS: {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
 }[] = [
+  { id: 'deposit', label: 'Depósito de Mídia', icon: Archive },
   { id: 'internal', label: 'Memória Interna', icon: Smartphone },
   { id: 'sdcard', label: 'Cartão SD', icon: HardDrive },
   { id: 'downloads', label: 'Downloads', icon: Download },
@@ -74,7 +76,7 @@ export const FileManagerView: React.FC<FileManagerViewProps> = ({
   const multiInputRef = useRef<HTMLInputElement>(null);
   const dirInputRef = useRef<HTMLInputElement>(null);
 
-  const [currentFolder, setCurrentFolder] = useState<VirtualFolderId>('internal');
+  const [currentFolder, setCurrentFolder] = useState<VirtualFolderId>('deposit');
   const [selectedCustomFolderId, setSelectedCustomFolderId] = useState<string | undefined>();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [previewFile, setPreviewFile] = useState<MediaFile | null>(null);

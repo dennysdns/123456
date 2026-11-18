@@ -6,6 +6,7 @@ import {
   Film,
   Download,
   ArrowLeft,
+  Save,
 } from 'lucide-react';
 import {
   CustomFolder,
@@ -54,6 +55,7 @@ export default function App() {
   const [settings, setSettings] = useState<StudioSettings>(() => localDb.getSettings());
   const [showNewModal, setShowNewModal] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isDirty, setIsDirty] = useState(false);
 
   const imageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map());
   const gifCacheRef = useRef<Map<string, DecodedGif>>(new Map());
@@ -157,15 +159,16 @@ export default function App() {
     });
   }, [mediaFiles]);
 
-  // Auto-save active project periodically
+  // Edits stay in memory until the user saves; closing without saving discards them.
   useEffect(() => {
-    if (!activeProject) return;
-    const intervalMs = Math.max(5, settings.autoSaveIntervalSec) * 1000;
-    const id = window.setInterval(() => {
-      void persistProject(activeProject);
-    }, intervalMs);
-    return () => window.clearInterval(id);
-  }, [activeProject, settings.autoSaveIntervalSec]);
+    if (!isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   const persistProject = async (proj: StudioProject) => {
     const thumb = generateProjectThumbnail(proj, imageCacheRef.current);
@@ -175,6 +178,7 @@ export default function App() {
       updatedAt: Date.now(),
     };
     await localDb.saveProject(updated);
+    setIsDirty(false);
     setProjects((prev) => {
       const exists = prev.some((p) => p.id === updated.id);
       const list = exists
@@ -186,6 +190,7 @@ export default function App() {
 
   const handleUpdateProject = (updated: StudioProject) => {
     setActiveProject(updated);
+    setIsDirty(true);
   };
 
   const handleSaveCurrentProject = async () => {
@@ -213,11 +218,13 @@ export default function App() {
     setProjects((prev) => [created, ...prev]);
     setActiveProject(created);
     setShowNewModal(false);
+    setIsDirty(false);
     setView(config.targetView);
   };
 
   const handleOpenProject = (proj: StudioProject) => {
     setActiveProject(proj);
+    setIsDirty(false);
     setView(proj.lastTool || 'animation');
   };
 
@@ -424,7 +431,7 @@ export default function App() {
     }
 
     setActiveProject(next);
-    await persistProject(next);
+    setIsDirty(true);
   };
 
   const handleSaveToGallery = async (item: GalleryItem) => {
@@ -452,6 +459,7 @@ export default function App() {
     setMediaFiles([]);
     setCustomFolders([]);
     setGalleryItems([]);
+    setIsDirty(false);
     setView('home');
   };
 
@@ -509,7 +517,7 @@ export default function App() {
           ))}
         </nav>
 
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center gap-2">
           {view === 'home' ? (
             <button
               onClick={() => setShowNewModal(true)}
@@ -518,12 +526,26 @@ export default function App() {
               Novo Projeto
             </button>
           ) : (
-            <button
-              onClick={() => navigate('export')}
-              className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
-            >
-              Exportar Vídeo
-            </button>
+            <>
+              <button
+                onClick={handleSaveCurrentProject}
+                title="Salvar projeto — alterações não salvas são descartadas ao fechar"
+                className={`px-3 py-2 rounded-lg border text-xs font-bold transition-colors whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 cursor-pointer ${
+                  isDirty
+                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 hover:bg-emerald-500/30'
+                    : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+                }`}
+              >
+                <Save className="w-3.5 h-3.5" />
+                Salvar{isDirty ? ' *' : ''}
+              </button>
+              <button
+                onClick={() => navigate('export')}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                Exportar Vídeo
+              </button>
+            </>
           )}
         </div>
       </header>

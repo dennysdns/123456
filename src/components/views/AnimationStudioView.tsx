@@ -35,6 +35,8 @@ import {
 import {
   AnimationFrame,
   AnimationLayer,
+  AnimationRule,
+  AnimationRuleAction,
   CharacterPresetId,
   DEFAULT_CHROMA_KEY,
   DEFAULT_EFFECTS,
@@ -77,6 +79,14 @@ const CHARACTER_OPTIONS: { id: CharacterPresetId; label: string }[] = [
   { id: 'carro', label: 'Carro' },
 ];
 
+const RULE_LABELS: Record<AnimationRuleAction, string> = {
+  'fade-in': 'Aparecer',
+  'fade-out': 'Desaparecer',
+  'slide-in-left': 'Entrar pela esquerda',
+  'slide-in-right': 'Entrar pela direita',
+  pulse: 'Pulsar',
+};
+
 const SHAPE_OPTIONS: { id: ShapePresetId; label: string }[] = [
   { id: 'rect', label: 'Retângulo' },
   { id: 'circle', label: 'Círculo' },
@@ -116,6 +126,10 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
   const [timelineZoom, setTimelineZoom] = useState(72);
   const [activeAddTab, setActiveAddTab] = useState<'chars' | 'shapes' | 'images' | 'fx'>('chars');
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
+  const [ruleLayerId, setRuleLayerId] = useState<string>('');
+  const [ruleAction, setRuleAction] = useState<AnimationRuleAction>('fade-in');
+  const [ruleStartFrame, setRuleStartFrame] = useState(0);
+  const [ruleEndFrame, setRuleEndFrame] = useState(Math.max(1, project.frames.length - 1));
 
   // Drag state (move, draw, corner resize, top knob rotate)
   const dragStateRef = useRef<{
@@ -335,6 +349,82 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
       ...project,
       lastTool: 'animation',
       layers: project.layers.map((l) => (l.id === selectedLayerId ? updater(l) : l)),
+    });
+  };
+
+  const activeRuleLayerId =
+    ruleLayerId && project.layers.some((l) => l.id === ruleLayerId)
+      ? ruleLayerId
+      : selectedLayerId || project.layers[0]?.id || '';
+
+  const addAnimationRule = () => {
+    const layer = project.layers.find((l) => l.id === activeRuleLayerId);
+    if (!layer) return;
+    const maxFrame = Math.max(0, project.frames.length - 1);
+    const startFrame = Math.max(0, Math.min(maxFrame, Math.round(ruleStartFrame)));
+    const endFrame = Math.max(startFrame, Math.min(maxFrame, Math.round(ruleEndFrame)));
+    const base = interpolateLayerAtFrame(layer, startFrame, project.frames.length);
+
+    let updated = layer;
+    if (ruleAction === 'fade-in') {
+      updated = upsertLayerKeyframe(
+        upsertLayerKeyframe(layer, startFrame, { opacity: 0 }),
+        endFrame,
+        { opacity: 1 }
+      );
+    } else if (ruleAction === 'fade-out') {
+      updated = upsertLayerKeyframe(
+        upsertLayerKeyframe(layer, startFrame, { opacity: 1 }),
+        endFrame,
+        { opacity: 0 }
+      );
+    } else if (ruleAction === 'slide-in-left') {
+      updated = upsertLayerKeyframe(
+        upsertLayerKeyframe(layer, startFrame, { x: base.x - project.width * 0.4 }),
+        endFrame,
+        { x: base.x }
+      );
+    } else if (ruleAction === 'slide-in-right') {
+      updated = upsertLayerKeyframe(
+        upsertLayerKeyframe(layer, startFrame, { x: base.x + project.width * 0.4 }),
+        endFrame,
+        { x: base.x }
+      );
+    } else {
+      const midFrame = Math.round((startFrame + endFrame) / 2);
+      updated = upsertLayerKeyframe(
+        upsertLayerKeyframe(
+          upsertLayerKeyframe(layer, startFrame, { scaleX: 1, scaleY: 1 }),
+          midFrame,
+          { scaleX: 1.25, scaleY: 1.25 }
+        ),
+        endFrame,
+        { scaleX: 1, scaleY: 1 }
+      );
+    }
+
+    const rule: AnimationRule = {
+      id: `rule-${Date.now()}`,
+      layerId: layer.id,
+      action: ruleAction,
+      startFrame,
+      endFrame,
+    };
+
+    onUpdateProject({
+      ...project,
+      lastTool: 'animation',
+      layers: project.layers.map((l) => (l.id === layer.id ? updated : l)),
+      rules: [...(project.rules || []), rule],
+    });
+    setSaveNotice('Regra aplicada: keyframes criados na camada.');
+    window.setTimeout(() => setSaveNotice(null), 2200);
+  };
+
+  const removeAnimationRule = (ruleId: string) => {
+    onUpdateProject({
+      ...project,
+      rules: (project.rules || []).filter((r) => r.id !== ruleId),
     });
   };
 
@@ -1802,6 +1892,105 @@ export const AnimationStudioView: React.FC<AnimationStudioViewProps> = ({
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="pt-2 border-t border-white/8 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-semibold text-amber-300 inline-flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3" />
+                    Regras de Animação
+                  </p>
+                  <span className="text-[10px] font-mono text-slate-500">
+                    {(project.rules || []).length}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <select
+                    value={activeRuleLayerId}
+                    onChange={(e) => setRuleLayerId(e.target.value)}
+                    className="col-span-2 rounded-lg bg-[#0B0D11] border border-white/12 px-2 py-1.5 text-[11px] text-white cursor-pointer"
+                  >
+                    {project.layers.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={ruleAction}
+                    onChange={(e) => setRuleAction(e.target.value as AnimationRuleAction)}
+                    className="col-span-2 rounded-lg bg-[#0B0D11] border border-white/12 px-2 py-1.5 text-[11px] text-white cursor-pointer"
+                  >
+                    {(Object.keys(RULE_LABELS) as AnimationRuleAction[]).map((action) => (
+                      <option key={action} value={action}>
+                        {RULE_LABELS[action]}
+                      </option>
+                    ))}
+                  </select>
+                  <label className="text-[10px] text-slate-400">
+                    Quadro inicial
+                    <input
+                      type="number"
+                      min={1}
+                      max={project.frames.length}
+                      value={ruleStartFrame + 1}
+                      onChange={(e) => setRuleStartFrame(Math.max(0, Number(e.target.value) - 1))}
+                      className="mt-1 w-full rounded-lg bg-[#0B0D11] border border-white/12 px-2 py-1 text-[11px] text-white font-mono"
+                    />
+                  </label>
+                  <label className="text-[10px] text-slate-400">
+                    Quadro final
+                    <input
+                      type="number"
+                      min={1}
+                      max={project.frames.length}
+                      value={ruleEndFrame + 1}
+                      onChange={(e) => setRuleEndFrame(Math.max(0, Number(e.target.value) - 1))}
+                      className="mt-1 w-full rounded-lg bg-[#0B0D11] border border-white/12 px-2 py-1 text-[11px] text-white font-mono"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addAnimationRule}
+                  className="w-full min-h-[34px] rounded-lg bg-amber-500 hover:bg-amber-400 text-[11px] font-bold text-slate-950 inline-flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  Adicionar regra
+                </button>
+
+                {(project.rules || []).length > 0 && (
+                  <ul className="space-y-1">
+                    {(project.rules || []).map((rule) => {
+                      const ruleLayer = project.layers.find((l) => l.id === rule.layerId);
+                      return (
+                        <li
+                          key={rule.id}
+                          className="flex items-center justify-between gap-2 rounded-lg bg-[#0B0D11] border border-white/10 px-2 py-1.5"
+                        >
+                          <span className="text-[10px] text-slate-300 truncate">
+                            {ruleLayer?.name || 'Camada'} · {RULE_LABELS[rule.action]} · Q
+                            {rule.startFrame + 1}–Q{rule.endFrame + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeAnimationRule(rule.id)}
+                            className="p-1 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 cursor-pointer shrink-0"
+                            aria-label="Remover regra"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
+                <p className="text-[10px] text-slate-500 leading-snug">
+                  A regra cria keyframes automáticos no intervalo escolhido.
+                </p>
               </div>
             </>
           ) : (

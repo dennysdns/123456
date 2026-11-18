@@ -1097,13 +1097,62 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     const dt = (dx / Math.max(120, drag.trackWidthPx)) * totalDuration;
 
     if (drag.kind === 'video') {
-      const nextStart = Number(Math.max(0, drag.origStartTime + dt).toFixed(2));
-      onUpdateProject({
-        ...project,
-        videoClips: project.videoClips.map((c) =>
-          c.id === drag.clipId ? { ...c, startTime: nextStart } : c
-        ),
-      });
+      const applyPatch = (patch: {
+        startTime?: number;
+        trimStart?: number;
+        duration?: number;
+      }) =>
+        onUpdateProject({
+          ...project,
+          videoClips: project.videoClips.map((c) =>
+            c.id === drag.clipId ? { ...c, ...patch } : c
+          ),
+        });
+
+      if (drag.mode === 'move') {
+        const nextStart = Number(Math.max(0, drag.origStartTime + dt).toFixed(2));
+        applyPatch({ startTime: nextStart });
+        return;
+      }
+
+      const spd = Math.max(0.25, drag.speed);
+      const hasSource = drag.sourceDuration > 0.05;
+
+      if (drag.mode === 'trim-left') {
+        const minDt = hasSource
+          ? Math.max(-drag.origStartTime, -drag.origTrimStart / spd)
+          : -drag.origStartTime;
+        const maxDt = hasSource
+          ? (drag.origDuration - 0.2) / spd
+          : drag.origDuration - 0.2;
+        const clampedDt = Math.max(minDt, Math.min(maxDt, dt));
+        const nextStart = Number(Math.max(0, drag.origStartTime + clampedDt).toFixed(2));
+        if (hasSource) {
+          applyPatch({
+            startTime: nextStart,
+            trimStart: Number(Math.max(0, drag.origTrimStart + clampedDt * spd).toFixed(2)),
+            duration: Number(Math.max(0.2, drag.origDuration - clampedDt * spd).toFixed(2)),
+          });
+        } else {
+          applyPatch({
+            startTime: nextStart,
+            duration: Number(Math.max(0.2, drag.origDuration - clampedDt).toFixed(2)),
+          });
+        }
+      } else {
+        const nextDuration = hasSource
+          ? Number(
+              Math.max(
+                0.2,
+                Math.min(
+                  drag.sourceDuration - drag.origTrimStart,
+                  drag.origDuration + dt * spd
+                )
+              ).toFixed(2)
+            )
+          : Number(Math.max(0.2, drag.origDuration + dt).toFixed(2));
+        applyPatch({ duration: nextDuration });
+      }
       return;
     }
 
@@ -2022,6 +2071,11 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                     (clip.duration / Math.max(0.25, clip.speed) / totalDuration) * 100
                   );
                   const active = clip.id === selectedClipId;
+                  const clipMedia = clip.mediaId
+                    ? mediaFiles.find((m) => m.id === clip.mediaId)
+                    : undefined;
+                  const clipSourceDuration =
+                    clip.kind === 'video' && clipMedia?.duration ? clipMedia.duration : 0;
                   return (
                     <button
                       key={clip.id}
@@ -2040,7 +2094,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                           origStartTime: clip.startTime,
                           origTrimStart: clip.trimStart,
                           origDuration: clip.duration,
-                          sourceDuration: clip.duration,
+                          sourceDuration: clipSourceDuration,
                           speed: clip.speed,
                           trackWidthPx: trackEl?.getBoundingClientRect().width || 400,
                         };
@@ -2057,7 +2111,63 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                           : 'bg-[#1E2534] text-slate-200 border-white/15 hover:border-amber-400/50'
                       }`}
                     >
-                      {clip.name}
+                      <span className="pointer-events-none">{clip.name}</span>
+                      {active && (
+                        <>
+                          <span
+                            aria-label="Cortar início do clipe"
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              const trackEl = e.currentTarget.parentElement?.parentElement;
+                              timelineDragRef.current = {
+                                active: true,
+                                kind: 'video',
+                                mode: 'trim-left',
+                                clipId: clip.id,
+                                startClientX: e.clientX,
+                                origStartTime: clip.startTime,
+                                origTrimStart: clip.trimStart,
+                                origDuration: clip.duration,
+                                sourceDuration: clipSourceDuration,
+                                speed: clip.speed,
+                                trackWidthPx: trackEl?.getBoundingClientRect().width || 400,
+                              };
+                              e.currentTarget.setPointerCapture(e.pointerId);
+                            }}
+                            className={`absolute left-0 top-0 bottom-0 w-3 rounded-l-md cursor-ew-resize touch-none z-20 ${
+                              trackName === 'overlay'
+                                ? 'bg-cyan-300 hover:bg-cyan-200'
+                                : 'bg-amber-300 hover:bg-amber-200'
+                            }`}
+                          />
+                          <span
+                            aria-label="Cortar fim do clipe"
+                            onPointerDown={(e) => {
+                              e.stopPropagation();
+                              const trackEl = e.currentTarget.parentElement?.parentElement;
+                              timelineDragRef.current = {
+                                active: true,
+                                kind: 'video',
+                                mode: 'trim-right',
+                                clipId: clip.id,
+                                startClientX: e.clientX,
+                                origStartTime: clip.startTime,
+                                origTrimStart: clip.trimStart,
+                                origDuration: clip.duration,
+                                sourceDuration: clipSourceDuration,
+                                speed: clip.speed,
+                                trackWidthPx: trackEl?.getBoundingClientRect().width || 400,
+                              };
+                              e.currentTarget.setPointerCapture(e.pointerId);
+                            }}
+                            className={`absolute right-0 top-0 bottom-0 w-3 rounded-r-md cursor-ew-resize touch-none z-20 ${
+                              trackName === 'overlay'
+                                ? 'bg-cyan-300 hover:bg-cyan-200'
+                                : 'bg-amber-300 hover:bg-amber-200'
+                            }`}
+                          />
+                        </>
+                      )}
                     </button>
                   );
                 })}

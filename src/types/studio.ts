@@ -15,6 +15,7 @@ export type StudioView =
 
 export type VirtualFolderId =
   | 'internal'
+  | 'deposit'
   | 'sdcard'
   | 'downloads'
   | 'music'
@@ -214,6 +215,21 @@ export interface AudioClip {
   peaks: number[]; // normalized 0..1 waveform bars
 }
 
+export type AnimationRuleAction =
+  | 'fade-in'
+  | 'fade-out'
+  | 'slide-in-left'
+  | 'slide-in-right'
+  | 'pulse';
+
+export interface AnimationRule {
+  id: string;
+  layerId: string;
+  action: AnimationRuleAction;
+  startFrame: number;
+  endFrame: number;
+}
+
 export interface StudioProject {
   id: string;
   name: string;
@@ -229,6 +245,7 @@ export interface StudioProject {
   particles: ParticlePreset;
   videoClips: VideoClip[];
   audioClips: AudioClip[];
+  rules?: AnimationRule[];
 }
 
 export interface GalleryItem {
