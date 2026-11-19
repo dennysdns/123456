@@ -463,7 +463,7 @@ export default function App() {
   const currentProject = activeProject || createStarterProject();
 
   return (
-    <div className="min-h-screen bg-[#0B0D11] text-[#F1F5F9] flex flex-col">
+    <div className="studio-compact min-h-screen bg-[#0B0D11] text-[#F1F5F9] flex flex-col">
       {/* Top Bar Contract: [Brand title] — [4-5 nav links] — [1 primary CTA] */}
       <header className="sticky top-0 z-40 h-14 bg-[#0B0D11]/95 backdrop-blur-md border-b border-white/8 px-4 sm:px-6 flex items-center justify-between gap-8">
         <div className="flex items-center gap-3 min-w-0">
@@ -478,7 +478,7 @@ export default function App() {
           )}
           <button
             onClick={() => navigate('home')}
-            className="text-base sm:text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 cursor-pointer"
+            className="studio-brand text-base sm:text-lg font-bold tracking-tight text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             Super Animator Studio
           </button>

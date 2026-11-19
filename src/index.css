@@ -55,6 +55,23 @@
   background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
 
+/* ---------------------------------------------------------------------------
+   Compact studio controls
+   Every button renders smaller (font, padding, icons) so the project structure
+   fits inside the app window instead of overflowing its layout.
+--------------------------------------------------------------------------- */
+.studio-compact button:not(.studio-brand) {
+  font-size: 0.6875rem; /* 11px */
+  line-height: 1.25;
+  padding-block: 0.3rem;
+  min-height: 0;
+}
+
+.studio-compact button svg {
+  max-width: 0.875rem;
+  max-height: 0.875rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
