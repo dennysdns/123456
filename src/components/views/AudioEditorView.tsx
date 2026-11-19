@@ -441,7 +441,7 @@ export const AudioEditorView: React.FC<AudioEditorViewProps> = ({
           onPointerMove={handleTrimPointerMove}
           onPointerUp={handleTrimPointerUp}
           onPointerCancel={handleTrimPointerUp}
-          className="rounded-xl bg-[#13161D] border border-white/8 p-4 space-y-3 min-h-[360px]"
+          className="rounded-xl bg-[#13161D] border border-white/8 p-3 space-y-2 min-h-[260px]"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-xs font-semibold text-slate-300">
@@ -460,7 +460,7 @@ export const AudioEditorView: React.FC<AudioEditorViewProps> = ({
               </p>
             </div>
           ) : (
-            <div className="space-y-2.5">
+            <div className="space-y-2">
               {project.audioClips.map((clip) => {
                 const active = clip.id === selectedClipId;
                 const srcTotal = Math.max(0.2, clip.sourceDuration || clip.duration);
@@ -475,7 +475,7 @@ export const AudioEditorView: React.FC<AudioEditorViewProps> = ({
                   <div
                     key={clip.id}
                     onClick={() => setSelectedClipId(clip.id)}
-                    className={`rounded-xl border p-3 space-y-2 transition-colors cursor-pointer ${
+                    className={`rounded-xl border p-2.5 space-y-1.5 transition-colors cursor-pointer ${
                       active
                         ? 'border-amber-500 bg-amber-500/10'
                         : 'border-white/10 bg-[#1A1E28] hover:border-white/20'
@@ -525,7 +525,7 @@ export const AudioEditorView: React.FC<AudioEditorViewProps> = ({
                     </div>
 
                     {/* Interactive Drag-to-Trim Waveform Bars */}
-                    <div className="h-16 rounded-lg bg-[#0B0D11] relative overflow-hidden select-none touch-none border border-white/8">
+                    <div className="h-12 rounded-lg bg-[#0B0D11] relative overflow-hidden select-none touch-none border border-white/8">
                       <div className="absolute inset-0 px-2 flex items-center gap-[2px] pointer-events-none">
                         {clip.peaks.map((pk, idx) => (
                           <div

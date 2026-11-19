@@ -59,9 +59,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <div>
-            <label className="block text-xs text-slate-300 mb-1.5">Resolução Única do Estúdio</label>
+            <label className="block text-xs text-slate-300 mb-1.5">Resolução Padrão do Estúdio</label>
             <div className="w-full rounded-xl bg-[#0B0D11] border border-amber-500/30 px-3 py-2.5 text-sm text-amber-300 font-mono">
-              Vertical 1080×1920 (9:16 — Tamanho Único)
+              9:16 · 1080×1920 (ajustável no player)
             </div>
           </div>
 

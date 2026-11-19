@@ -42,6 +42,7 @@ import {
   processImportedFile,
 } from '../../utils/mediaImporter';
 import { DecodedGif, pickGifFrameAtTime } from '../../utils/gifDecoder';
+import { getAspectLabel, PlayerResolutionBar } from '../PlayerResolutionBar';
 
 interface VideoEditorViewProps {
   project: StudioProject;
@@ -1146,9 +1147,9 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
           </div>
           <span
             className="rounded-lg bg-[#1A1E28] border border-amber-500/30 px-2.5 py-1 text-xs text-amber-300 font-mono"
-            title="Proporção Única do Projeto"
+            title="Proporção do Projeto"
           >
-            9:16 · {project.width}×{project.height}
+            {getAspectLabel(project.width, project.height)} · {project.width}×{project.height}
           </span>
         </div>
 
@@ -1378,6 +1379,10 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
 
         {/* Center Video Monitor (Touch + Mouse Drag / Resize / Rotate) */}
         <div className="rounded-xl bg-[#13161D] border border-white/8 p-3 space-y-2.5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold text-slate-300">Player</span>
+            <PlayerResolutionBar project={project} onUpdateProject={onUpdateProject} />
+          </div>
           <div className="w-full rounded-lg bg-[#0B0D11] border border-white/10 overflow-hidden p-2 flex items-center justify-center">
             <canvas
               ref={canvasRef}
@@ -1852,7 +1857,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         onPointerMove={handleTimelinePointerMove}
         onPointerUp={handleTimelinePointerUp}
         onPointerCancel={handleTimelinePointerUp}
-        className="rounded-xl bg-[#13161D] border border-white/8 p-4 space-y-3 overflow-x-auto"
+        className="rounded-xl bg-[#13161D] border border-white/8 p-3 space-y-2 overflow-x-auto"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span className="text-xs font-semibold text-slate-300">
@@ -1864,7 +1869,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         </div>
 
         {(selectedClip || selectedAudioClip) && (
-          <div className="rounded-lg bg-[#1A1E28] border border-amber-500/30 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="rounded-lg bg-[#1A1E28] border border-amber-500/30 px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-semibold text-white truncate">
               Selecionado:{' '}
               <span className="text-amber-300">
@@ -1875,7 +1880,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
               <button
                 type="button"
                 onClick={() => duplicateSelectedClip(false)}
-                className="min-h-[34px] px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 inline-flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[30px] px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Copy className="w-3.5 h-3.5" />
                 Duplicar na Mesma Pista
@@ -1885,7 +1890,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                   <button
                     type="button"
                     onClick={insertSelectedIntoMainVideoTrack}
-                    className="min-h-[34px] px-3 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-xs font-semibold text-cyan-200 inline-flex items-center gap-1.5 cursor-pointer"
+                    className="min-h-[30px] px-3 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-xs font-semibold text-cyan-200 inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowDownToLine className="w-3.5 h-3.5" />
                     {selectedClip.track === 'video'
@@ -1895,7 +1900,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                   <button
                     type="button"
                     onClick={createOverlayFromSelected}
-                    className="min-h-[34px] px-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-xs font-semibold text-purple-200 inline-flex items-center gap-1.5 cursor-pointer"
+                    className="min-h-[30px] px-3 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-xs font-semibold text-purple-200 inline-flex items-center gap-1.5 cursor-pointer"
                   >
                     <Layers className="w-3.5 h-3.5" />
                     Criar Sobreposição
@@ -1905,7 +1910,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
               <button
                 type="button"
                 onClick={splitSelectedClipAtPlayhead}
-                className="min-h-[34px] px-3 rounded-lg bg-[#0B0D11] hover:bg-white/10 border border-white/15 text-xs font-medium text-cyan-300 inline-flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[30px] px-3 rounded-lg bg-[#0B0D11] hover:bg-white/10 border border-white/15 text-xs font-medium text-cyan-300 inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Scissors className="w-3.5 h-3.5" />
                 Dividir
@@ -1913,7 +1918,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
               <button
                 type="button"
                 onClick={deleteSelectedFromTimeline}
-                className="min-h-[34px] px-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-xs font-semibold text-red-200 inline-flex items-center gap-1.5 cursor-pointer"
+                className="min-h-[30px] px-3 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-xs font-semibold text-red-200 inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 Apagar
@@ -1942,7 +1947,7 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
                   setIsPlaying(false);
                   setCurrentTime(Number((ratio * totalDuration).toFixed(2)));
                 }}
-                className={`flex-1 h-14 rounded-lg bg-[#0B0D11] border relative overflow-hidden ${
+                className={`flex-1 h-10 rounded-lg bg-[#0B0D11] border relative overflow-hidden ${
                   trackName === 'overlay' ? 'border-cyan-500/25' : 'border-white/8'
                 }`}
               >

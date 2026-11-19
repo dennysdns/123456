@@ -16,7 +16,7 @@ interface NewProjectModalProps {
 }
 
 const FIXED_RESOLUTION = {
-  label: '9:16 Vertical — Resolução Única (1080×1920)',
+  label: '9:16 Vertical — 1080×1920',
   width: 1080,
   height: 1920,
 };
@@ -76,7 +76,7 @@ export const NewProjectModal: React.FC<NewProjectModalProps> = ({
 
           <div>
             <label className="block text-xs font-medium text-slate-300 mb-2">
-              Resolução e Proporção (Tamanho Único)
+              Resolução Inicial (ajustável no player)
             </label>
             <div className="flex items-center gap-3 rounded-xl border border-amber-500/60 bg-amber-500/10 px-4 py-3 text-white">
               <Smartphone className="w-4 h-4 shrink-0 text-amber-400" />

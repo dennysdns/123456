@@ -21,7 +21,6 @@ import {
   createBlankProject,
   createStarterProject,
   localDb,
-  resizeProjectDimensions,
 } from './storage/localDb';
 import {
   ensureStudioBackgroundLoaded,
@@ -80,23 +79,21 @@ export default function App() {
           await localDb.saveProject(starter);
           projs = [starter];
         } else {
-          const migrated: StudioProject[] = [];
+          // Keep each project's saved resolution (chosen in the player) instead of
+          // forcing it back to 9:16; only refresh the thumbnail.
+          const refreshed: StudioProject[] = [];
           for (const p of projs) {
-            const normalized =
-              p.width !== 1080 || p.height !== 1920
-                ? resizeProjectDimensions(p, 1080, 1920)
-                : p;
-            const thumb = generateProjectThumbnail(normalized, imageCacheRef.current);
+            const thumb = generateProjectThumbnail(p, imageCacheRef.current);
             const updatedProj = {
-              ...normalized,
-              thumbnailDataUrl: thumb || normalized.thumbnailDataUrl,
+              ...p,
+              thumbnailDataUrl: thumb || p.thumbnailDataUrl,
             };
-            if (p.width !== 1080 || p.height !== 1920 || thumb) {
+            if (thumb) {
               await localDb.saveProject(updatedProj);
             }
-            migrated.push(updatedProj);
+            refreshed.push(updatedProj);
           }
-          projs = migrated;
+          projs = refreshed;
         }
 
         if (!mounted) return;

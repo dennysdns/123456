@@ -8,6 +8,7 @@ import {
 import { mixAudioClipsOffline } from '../../utils/audioEngine';
 import { exportProjectVideoOffline, triggerBlobDownload } from '../../utils/videoExporter';
 import { formatBytes } from '../../utils/mediaImporter';
+import { getAspectLabel } from '../PlayerResolutionBar';
 
 import { DecodedGif } from '../../utils/gifDecoder';
 
@@ -180,7 +181,7 @@ export const ExportView: React.FC<ExportViewProps> = ({
           <div>
             <label className="block text-xs text-slate-300 mb-1.5">Resolução de Saída</label>
             <div className="w-full rounded-xl bg-[#0B0D11] border border-amber-500/30 px-3 py-2.5 text-sm text-amber-300 font-mono">
-              9:16 Vertical Único (1080×1920)
+              {getAspectLabel(project.width, project.height)} ({project.width}×{project.height})
             </div>
           </div>
 
