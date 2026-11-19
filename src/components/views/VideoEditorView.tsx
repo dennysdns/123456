@@ -19,6 +19,8 @@ import {
   Copy,
   ArrowDownToLine,
   Layers,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   AudioClip,
@@ -82,6 +84,9 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
   );
   const [selectedAudioClipId, setSelectedAudioClipId] = useState<string | null>(null);
   const [saveLabel, setSaveLabel] = useState<string | null>(null);
+  const [timelineCollapsed, setTimelineCollapsed] = useState(false);
+  const [timelineHeight, setTimelineHeight] = useState(220);
+  const timelineResizeRef = useRef({ active: false, startY: 0, startHeight: 0 });
 
   const canvasDragRef = useRef<{
     active: boolean;
@@ -1119,6 +1124,30 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
     timelineDragRef.current.active = false;
   };
 
+  // Retractable timeline: drag the top grip with mouse or touch to set its height
+  const handleTimelineResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    timelineResizeRef.current = {
+      active: true,
+      startY: e.clientY,
+      startHeight: timelineHeight,
+    };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleTimelineResizeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const resize = timelineResizeRef.current;
+    if (!resize.active) return;
+    const next = resize.startHeight + (e.clientY - resize.startY);
+    setTimelineHeight(Math.min(520, Math.max(96, Math.round(next))));
+  };
+
+  const handleTimelineResizeEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    timelineResizeRef.current.active = false;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+  };
+
   const visualMedia = mediaFiles.filter((m) => m.kind === 'video' || m.kind === 'image');
   const audioMedia = mediaFiles.filter((m) => m.kind === 'audio');
 
@@ -1857,16 +1886,47 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
         onPointerMove={handleTimelinePointerMove}
         onPointerUp={handleTimelinePointerUp}
         onPointerCancel={handleTimelinePointerUp}
-        className="rounded-xl bg-[#13161D] border border-white/8 p-3 space-y-2 overflow-x-auto"
+        className="rounded-xl bg-[#13161D] border border-white/8 overflow-hidden"
       >
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-xs font-semibold text-slate-300">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => setTimelineCollapsed((collapsed) => !collapsed)}
+            aria-expanded={!timelineCollapsed}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-300 hover:text-white cursor-pointer"
+          >
+            {timelineCollapsed ? (
+              <ChevronUp className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5" />
+            )}
             Linha do Tempo Multipista (Vídeo, Sobreposição e Áudio)
-          </span>
+          </button>
           <span className="text-[11px] text-slate-400">
-            Toque em um vídeo para duplicar, inserir no Vídeo Principal ou apagar · Arraste para mover
+            {timelineCollapsed
+              ? 'Toque no título para abrir'
+              : 'Arraste a alça acima das pistas para ajustar a altura · Arraste clipes para mover'}
           </span>
         </div>
+
+        {!timelineCollapsed && (
+          <>
+            <div
+              role="separator"
+              aria-label="Ajustar altura da linha do tempo"
+              title="Arraste para ajustar a altura"
+              onPointerDown={handleTimelineResizeStart}
+              onPointerMove={handleTimelineResizeMove}
+              onPointerUp={handleTimelineResizeEnd}
+              onPointerCancel={handleTimelineResizeEnd}
+              className="group mx-3 mb-1 h-4 rounded bg-[#0B0D11]/70 hover:bg-amber-500/20 cursor-row-resize touch-none flex items-center justify-center"
+            >
+              <span className="h-0.5 w-12 rounded-full bg-slate-600 group-hover:bg-amber-400" />
+            </div>
+            <div
+              style={{ height: timelineHeight }}
+              className="overflow-y-auto overflow-x-auto px-3 pb-3 space-y-2"
+            >
 
         {(selectedClip || selectedAudioClip) && (
           <div className="rounded-lg bg-[#1A1E28] border border-amber-500/30 px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-2">
@@ -2174,6 +2234,9 @@ export const VideoEditorView: React.FC<VideoEditorViewProps> = ({
             />
           </div>
         </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
